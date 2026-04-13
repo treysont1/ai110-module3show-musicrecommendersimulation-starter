@@ -1,0 +1,19 @@
+flowchart TD
+    A([User Preferences\ngenre · mood · energy · valence · acousticness · tempo]) --> B
+
+    B[Load songs from CSV] --> C
+
+    C{For each song in catalog} --> D
+
+    D[Score: genre match\nExact = 1.0 · Related = partial · Unrelated = 0.0] --> E
+    E[Score: mood match\nExact = 1.0 · No match = 0.0] --> F
+    F[Score: numeric proximity\nenergy · valence · acousticness · tempo] --> G
+    G[Weighted sum ÷ 10\n= final score 0.0–1.0] --> H
+
+    H{More songs?}
+    H -- Yes --> C
+    H -- No --> I
+
+    I[Sort all scores\nhighest → lowest] --> J
+
+    J([Top K Recommendations\nwith score and explanation])

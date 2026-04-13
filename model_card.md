@@ -5,107 +5,51 @@
 Give your model a short, descriptive name.  
 Example: **VibeFinder 1.0**  
 
----
+BetterMusic
 
 ## 2. Intended Use  
 
-Describe what your recommender is designed to do and who it is for. 
-
-Prompts:  
-
-- What kind of recommendations does it generate  
-- What assumptions does it make about the user  
-- Is this for real users or classroom exploration  
+BetterMusic suggests songs from a small catalog based on a user's declared genre, mood, energy, and audio preferences. It is a classroom simulation and is not intended for real users or production use.
 
 ---
 
+
 ## 3. How the Model Works  
 
-Explain your scoring approach in simple language.  
-
-Prompts:  
-
-- What features of each song are used (genre, energy, mood, etc.)  
-- What user preferences are considered  
-- How does the model turn those into a score  
-- What changes did you make from the starter logic  
-
-Avoid code here. Pretend you are explaining the idea to a friend who does not program.
+Every song gets a score from 0 to 1 based on how closely its genre, mood, energy, acousticness, valence, and tempo match the user's preferences, genre matters most and tempo matters least. One key change from the starter is that genre is not a strict yes/no match: related genres like r&b and hip-hop receive partial credit instead of scoring zero.
 
 ---
 
 ## 4. Data  
 
-Describe the dataset the model uses.  
-
-Prompts:  
-
-- How many songs are in the catalog  
-- What genres or moods are represented  
-- Did you add or remove data  
-- Are there parts of musical taste missing in the dataset  
+The catalog contains 19 songs across 16 genres and 15 moods, expanded from the original 10-song starter by adding hip-hop, r&b, country, classical, metal, blues, edm, folk, and dream pop. Genres like reggae, soul, and Latin are missing entirely, and most genres have only one song, which limits how well the system can rank within a genre.
 
 ---
 
 ## 5. Strengths  
 
-Where does your system seem to work well  
-
-Prompts:  
-
-- User types for which it gives reasonable results  
-- Any patterns you think your scoring captures correctly  
-- Cases where the recommendations matched your intuition  
+The system works best for listeners with clear, common preferences — a chill lofi user or a high-energy pop user gets accurate, intuitive results because those genres have multiple catalog entries and distinctive numeric profiles. The genre similarity table also means a related-genre song can still surface rather than scoring zero, which produces more useful fallback recommendations than a strict binary match would.
 
 ---
 
 ## 6. Limitations and Bias 
 
-Where the system struggles or behaves unfairly. 
-
-Prompts:  
-
-- Features it does not consider  
-- Genres or moods that are underrepresented  
-- Cases where the system overfits to one preference  
-- Ways the scoring might unintentionally favor some users  
+The most significant weakness discovered during testing is that genre and mood together account for 50% of the maximum possible score (5.0 out of 10.0), which causes the system to lock users into a narrow taste bubble. A "Contradictory" profile was tested where the genre and mood were set to "lofi/chill" but the numeric preferences — energy 0.92, acousticness 0.10, and tempo 145 BPM — described a loud, fast, electronic sound; the system still returned quiet acoustic lofi tracks in the top results because the categorical match alone outweighed all four numeric mismatches. This means a user whose actual listening behavior has shifted (for example, a former lofi fan who now wants high-energy music) would continue receiving stale recommendations as long as their declared genre preference stays the same. The system also cannot surface cross-genre discoveries: a hip-hop listener with high valence and danceability preferences would likely enjoy certain pop or r&b tracks, but songs in those genres are structurally penalized unless they appear in the similarity table. In real recommendation systems this kind of genre lock-in is known as a filter bubble — the system keeps confirming what it already knows about you rather than helping you find something new.
 
 ---
 
 ## 7. Evaluation  
 
-How you checked whether the recommender behaved as expected. 
-
-Prompts:  
-
-- Which user profiles you tested  
-- What you looked for in the recommendations  
-- What surprised you  
-- Any simple tests or comparisons you ran  
-
-No need for numeric metrics unless you created some.
+Six user profiles were tested: High-Energy Pop, Chill Lofi, Deep Intense Rock, Contradictory, No Genre Match, and All Middle. The first three were designed to reflect realistic listener types and produced results that matched intuition — the right songs showed up at the top with high scores and clear explanations. The three adversarial profiles were designed to stress-test the logic, and two of them produced genuinely surprising results. The Contradictory profile (lofi/chill genre and mood, but high energy and fast tempo) still returned quiet lofi tracks at the top — the system confidently recommended the opposite of what the numeric preferences described, because genre and mood alone were enough to dominate the score. The No Genre Match profile (genre set to "reggae," which does not exist in the catalog) showed the system losing most of its discriminating power: the top result won on a single mood match, and spots two through five were nearly tied because numeric proximity alone cannot separate songs meaningfully. The most unexpected finding was how rarely valence affected the rankings — in most profiles it contributed less than 0.1 points of separation between songs, making it the weakest feature in practice despite being included in the scoring rule.
 
 ---
 
 ## 8. Future Work  
 
-Ideas for how you would improve the model next.  
-
-Prompts:  
-
-- Additional features or preferences  
-- Better ways to explain recommendations  
-- Improving diversity among the top results  
-- Handling more complex user tastes  
+The most impactful improvement would be replacing the declared taste profile with implicit signals, tracking what a user actually plays, skips, and replays so the system learns their preferences instead of asking them to state it upfront. Adding collaborative filtering so the system can compare a user's taste to other users would also help surface cross-genre discoveries that content-based scoring alone cannot find.
 
 ---
 
 ## 9. Personal Reflection  
 
-A few sentences about your experience.  
-
-Prompts:  
-
-- What you learned about recommender systems  
-- Something unexpected or interesting you discovered  
-- How this changed the way you think about music recommendation apps  
+First, building this made it clear that a recommender is only as good as the signals it has access to. Secondly, declaring a genre preference is a very blunt way to describe taste. Lastly, the system's biggest failures all came from that label overriding more nuanced numeric information. It also changed how I think about apps like Spotify, with massive amounts of complexity being abstracted away from something as simple as a recommendation system. One time I had to double check AI was when it suggested creating a dictionary with tuples that mapped to a correlation (for genres) and passed in a sorted list, but the keys weren't all sorted.

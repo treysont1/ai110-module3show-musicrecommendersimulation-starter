@@ -17,17 +17,48 @@ Replace this paragraph with your own summary of what your version does.
 
 ## How The System Works
 
-Explain your design in plain language.
+This system uses **content-based filtering** — it compares song attributes directly against a user's declared taste preferences to produce a ranked list of recommendations. It does not use other users' behavior.
 
-Some prompts to answer:
+Each song will include genre, mood, energy, acousticness, valence, and tempo. To my knowledge, real-world recommendation systems use a combination of song-based attributes, and collaborative filtering. By recognizing specific values that resonate with a user, as well as songs that other users with similar taste enjoy, recommendation systems are able to provide better recommendations.
 
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-- What information does your `UserProfile` store
-- How does your `Recommender` compute a score for each song
-- How do you choose which songs to recommend
+**Song features:**
+- `genre` — categorical label (e.g. hip-hop, folk, edm)
+- `mood` — categorical label (e.g. happy, melancholic, aggressive)
+- `energy` — float 0.0–1.0, how intense the track feels
+- `acousticness` — float 0.0–1.0, acoustic vs. electronic
+- `valence` — float 0.0–1.0, emotional positivity
+- `tempo_bpm` — beats per minute
 
-You can include a simple diagram or bullet list if helpful.
+**UserProfile fields:**
+- `favorite_genre` — the genre the user prefers most
+- `favorite_mood` — the mood the user prefers most
+- `target_energy` — the energy level the user wants songs close to
+- `likes_acoustic` — boolean, whether the user prefers acoustic sounds
+
+**How the Recommender scores each song:**
+
+The score is a weighted sum of six sub-scores, each normalized to 0.0–1.0, divided by the maximum possible total (10.0):
+
+| Feature | Weight | Method |
+|---|---|---|
+| `genre` | 3.0 | 1.0 for exact match, partial credit for related genres (via similarity table), 0.0 for unrelated |
+| `mood` | 2.0 | 1.0 for exact match, 0.0 otherwise |
+| `energy` | 2.0 | `1.0 - abs(song - user target)` |
+| `acousticness` | 1.0 | `1.0 - abs(song - user target)` |
+| `valence` | 1.0 | `1.0 - abs(song - user target)` |
+| `tempo_bpm` | 1.0 | Normalized to 0–1 using catalog min/max, then proximity scored |
+
+Genre uses a similarity table rather than a strict binary match so that related genres (e.g. r&b scoring 0.7 against a hip-hop preference) still contribute to the score instead of returning zero.
+
+**How the final recommendations are chosen:**
+
+Every song in the catalog is scored independently. All scores are then sorted highest to lowest and the top `k` songs are returned (default k=5). The scoring rule answers "how well does this song fit?" for one song at a time; the ranking step answers "compared to everything else, which songs fit best?"
+
+See the flowchart for a visual overview: [flowchart.mmd](flowchart.mmd)
+
+**Algorithm recipe and known biases:**
+
+The recommender loads every song from `data/songs.csv` and scores each one against the user's taste profile by computing six sub-scores — genre similarity (exact match = 1.0, related = partial credit via lookup table, unrelated = 0.0), mood match (1.0 or 0.0), and four proximity scores using `1.0 - |song_value - user_target|` for energy, acousticness, valence, and tempo (tempo is first normalized to 0–1 using catalog min/max). Each sub-score is multiplied by its weight (genre 3.0, mood 2.0, energy 2.0, acousticness 1.0, valence 1.0, tempo 1.0), summed, and divided by 10.0 to produce a final score between 0.0 and 1.0. Songs are then sorted highest to lowest and the top `k` are returned. The main biases to be aware of are that genre carries 30% of the total score so users with niche or unrepresented genres are disadvantaged, the similarity table encodes subjective genre-relationship judgments that may not reflect all listeners, and the small catalog means genres with more songs have a structural advantage in numeric scoring.
 
 ---
 
@@ -68,13 +99,31 @@ You can add more tests in `tests/test_recommender.py`.
 
 ## Experiments You Tried
 
-Use this section to document the experiments you ran. For example:
+Six user profiles are defined in `src/main.py` and run automatically when you execute the app. Each is designed to test a different aspect of the scoring logic.
 
-- What happened when you changed the weight on genre from 2.0 to 0.5
-- What happened when you added tempo or valence to the score
-- How did your system behave for different types of users
+**Standard profiles** — test normal expected behavior:
+
+| Profile | Genre | Mood | Energy | Intent |
+|---|---|---|---|---|
+| High-Energy Pop | pop | happy | 0.85 | Clear genre match, many candidate songs |
+| Chill Lofi | lofi | chill | 0.38 | Low energy, high acoustic — should surface lofi and ambient |
+| Deep Intense Rock | rock | intense | 0.90 | High energy, low acoustic, fast tempo |
+
+**Adversarial / edge case profiles** — designed to expose weaknesses or unexpected behavior:
+
+| Profile | What it tests |
+|---|---|
+| Contradictory | Genre/mood say "lofi, chill" but energy/tempo say loud and fast — do numeric features override categoricals? |
+| No Genre Match | Genre set to "reggae" (not in catalog) — forces ranking on numeric features alone with no genre contribution |
+| All Middle | Every numeric value at 0.5 — does the system collapse into near-identical scores, or do categorical matches still separate results? |
 
 ---
+
+![high energy pop profile](image.png)
+![chill lofi profile](image-1.png)
+![intense rock](image-2.png)
+![contradictory results](image-3.png)
+![no genre match](image-4.png)
 
 ## Limitations and Risks
 
